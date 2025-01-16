@@ -11,6 +11,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
 from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel, Field
+from tqdm.notebook import tqdm
 
 
 # Define the output schema
@@ -149,6 +150,64 @@ def classify_transaction(
     return classification_result
 
 
+def create_comparison_df(
+    batch_results: BatchClassificationResults, original_df: pl.DataFrame
+) -> pl.DataFrame:
+    """Create a comparison dataframe with predicted and actual labels"""
+
+    # Extract predictions and actual values
+    rows = []
+    for result in batch_results.results:
+        row = {
+            "index": result.index,
+            "actual_beam_label": original_df["Beam Label"][result.index],
+            "actual_beam_tag": original_df["Beam Tag"][result.index],
+            "predicted_beam_label": None,
+            "predicted_beam_tag": None,
+            "correct_label": False,
+            "correct_tag": False,
+            "reasoning": None,
+            "error": result.error,
+        }
+
+        if result.classification:
+            # Get first category from predictions
+            categories = result.classification.categories
+            if categories:
+                first_category = categories[0]
+                row.update(
+                    {
+                        "predicted_beam_label": first_category.beam_label,
+                        "predicted_beam_tag": first_category.beam_tag,
+                        "reasoning": result.classification.reasoning,
+                    }
+                )
+
+                # Check if predictions match actual values
+                row["correct_label"] = (
+                    row["predicted_beam_label"] == row["actual_beam_label"]
+                )
+                row["correct_tag"] = row["predicted_beam_tag"] == row["actual_beam_tag"]
+
+        rows.append(row)
+
+    # Create DataFrame
+    comparison_df = pl.DataFrame(rows)
+
+    # Calculate accuracy metrics
+    label_accuracy = comparison_df["correct_label"].sum() / len(comparison_df) * 100
+    tag_accuracy = comparison_df["correct_tag"].sum() / len(comparison_df) * 100
+
+    print(f"\nAccuracy Metrics:")
+    print(f"Beam Label Accuracy: {label_accuracy:.2f}%")
+    print(f"Beam Tag Accuracy: {tag_accuracy:.2f}%")
+
+    return comparison_df
+
+
+# %%
+
+
 def process_batch(df, start_idx, end_idx):
     """Process a batch of transactions"""
     chain = create_classifier_chain()
@@ -172,31 +231,62 @@ def process_batch(df, start_idx, end_idx):
     return batch_results
 
 
-# Example usage
+def process_full_dataset(
+    df: pl.DataFrame, batch_size: int = 100
+) -> BatchClassificationResults:
+    """Process the entire dataset in batches with progress bar"""
+    total_rows = len(df)
+    all_results = []
+
+    # Create chain and parser once
+    chain = create_classifier_chain()
+    parser = PydanticOutputParser(pydantic_object=TransactionClassification)
+
+    # Process in batches with progress bar
+    with tqdm(total=total_rows, desc="Processing transactions") as pbar:
+        for start_idx in range(0, total_rows, batch_size):
+            end_idx = min(start_idx + batch_size, total_rows)
+
+            # Process each transaction in the batch
+            for idx in range(start_idx, end_idx):
+                result = classify_transaction(df, idx, chain, parser)
+                all_results.append(result)
+                pbar.update(1)
+
+    # Calculate overall success rate
+    successful = len([r for r in all_results if r.classification is not None])
+    success_rate = successful / total_rows if total_rows > 0 else 0.0
+
+    # Create batch results
+    batch_results = BatchClassificationResults(
+        results=all_results, success_rate=success_rate
+    )
+
+    return batch_results
+
+
+# %%
 if __name__ == "__main__":
+    # Load the dataset
     load_dotenv()
+    data_path = os.getenv("TRANSACTIONS_DATA_PATH")
+    df = pl.read_csv(data_path)
 
-    # Load data
-    df = pl.read_csv("data/HeliusData.csv")
+    # Process the full dataset
+    batch_results = process_full_dataset(df)
 
-    # Process a small batch as test
-    batch_results = process_batch(df, 0, 5)
+    # Save results to a JSON file
+    results_path = "classification_results.json"
+    batch_results.to_json(results_path)
 
-    # Print summary
-    print(f"\nProcessed {len(batch_results.results)} transactions")
-    print(f"Success rate: {batch_results.success_rate:.2%}")
-    print(f"Successful classifications: {batch_results.successful_classifications}")
-    print(f"Failed classifications: {batch_results.failed_classifications}")
+    # Create comparison DataFrame
+    comparison_df = create_comparison_df(batch_results, df)
 
-    # Save results to JSON
-    batch_results.to_json("classification_results.json")
+    # Save comparison DataFrame to a CSV file
+    comparison_path = "classification_comparison.csv"
+    comparison_df.write_csv(comparison_path)
 
-    # Print detailed results
-    for result in batch_results.results:
-        print(f"\nTransaction {result.index}:")
-        if result.classification:
-            print(f"Classification: {result.classification}")
-        else:
-            print(f"Error: {result.error}")
+    print(f"\nResults saved to: {results_path}")
+    print(f"Comparison saved to: {comparison_path}")
 
 # %%
