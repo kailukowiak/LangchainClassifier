@@ -1,4 +1,3 @@
-# %%
 import json
 import os
 from datetime import datetime
@@ -11,7 +10,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
 from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel, Field
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
 
 # Define the output schema
@@ -65,6 +64,7 @@ class BatchClassificationResults(BaseModel):
 
 
 def create_classifier_chain():
+    """Create a classification chain using the new RunnableSequence pattern"""
     # Initialize the LLM
     llm = ChatAnthropic(
         model="claude-3-sonnet-20240229",
@@ -93,8 +93,8 @@ Please provide:
 
     prompt = ChatPromptTemplate.from_template(template)
 
-    # Create the chain
-    chain = LLMChain(llm=llm, prompt=prompt, output_parser=parser, verbose=True)
+    # Create the runnable chain
+    chain = prompt | llm | parser
 
     return chain
 
@@ -124,11 +124,13 @@ def classify_transaction(
     ]
 
     try:
-        # Run the classification
-        result = chain.run(
-            transaction=transaction_data,
-            categories=categories,
-            format_instructions=parser.get_format_instructions(),
+        # Run the classification with the new chain syntax
+        result = chain.invoke(
+            {
+                "transaction": transaction_data,
+                "categories": categories,
+                "format_instructions": parser.get_format_instructions(),
+            }
         )
 
         classification_result = ClassificationResult(
@@ -148,64 +150,6 @@ def classify_transaction(
         )
 
     return classification_result
-
-
-def create_comparison_df(
-    batch_results: BatchClassificationResults, original_df: pl.DataFrame
-) -> pl.DataFrame:
-    """Create a comparison dataframe with predicted and actual labels"""
-
-    # Extract predictions and actual values
-    rows = []
-    for result in batch_results.results:
-        row = {
-            "index": result.index,
-            "actual_beam_label": original_df["Beam Label"][result.index],
-            "actual_beam_tag": original_df["Beam Tag"][result.index],
-            "predicted_beam_label": None,
-            "predicted_beam_tag": None,
-            "correct_label": False,
-            "correct_tag": False,
-            "reasoning": None,
-            "error": result.error,
-        }
-
-        if result.classification:
-            # Get first category from predictions
-            categories = result.classification.categories
-            if categories:
-                first_category = categories[0]
-                row.update(
-                    {
-                        "predicted_beam_label": first_category.beam_label,
-                        "predicted_beam_tag": first_category.beam_tag,
-                        "reasoning": result.classification.reasoning,
-                    }
-                )
-
-                # Check if predictions match actual values
-                row["correct_label"] = (
-                    row["predicted_beam_label"] == row["actual_beam_label"]
-                )
-                row["correct_tag"] = row["predicted_beam_tag"] == row["actual_beam_tag"]
-
-        rows.append(row)
-
-    # Create DataFrame
-    comparison_df = pl.DataFrame(rows)
-
-    # Calculate accuracy metrics
-    label_accuracy = comparison_df["correct_label"].sum() / len(comparison_df) * 100
-    tag_accuracy = comparison_df["correct_tag"].sum() / len(comparison_df) * 100
-
-    print(f"\nAccuracy Metrics:")
-    print(f"Beam Label Accuracy: {label_accuracy:.2f}%")
-    print(f"Beam Tag Accuracy: {tag_accuracy:.2f}%")
-
-    return comparison_df
-
-
-# %%
 
 
 def process_batch(df, start_idx, end_idx):
