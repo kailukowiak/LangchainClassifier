@@ -269,6 +269,7 @@ if __name__ == "__main__":
     load_dotenv()
     data_path = os.getenv("TRANSACTIONS_DATA_PATH")
     df = pl.read_csv(data_path)
+    df = df.head(1000)
 
     # Process the full dataset
     batch_results = process_full_dataset(df)
