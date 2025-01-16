@@ -1,0 +1,176 @@
+{
+  "results": [
+    {
+      "index": 0,
+      "transaction_data": {
+        "id": "b61ac98f-90fc-4d28-92d2-9a8c0c48afdb",
+        "transaction_detail_id": "6ab09253-b948-49f9-9533-b7c57ba60ac5",
+        "date": "2024-01-31 18:26:49+00",
+        "in_amount": 0.00203928,
+        "in_from": "G3iQJASyp53EFoKUWmMrMx6Pb2TeEWq3ognbHr7wqspT",
+        "in_token": "SOL",
+        "out_amount": 0.0,
+        "out_token": null,
+        "out_to": null,
+        "fee_amount": 0.000105,
+        "fee_paid_by": "3hNMXyYQ5u8vYnSCy4acxyRNEhA4CHBYvPBGXKLXsqwn",
+        "exchange": null,
+        "wallet_id": "1363551e-8d8d-475a-99d2-ed1fa5970d64",
+        "wallet_address": "3hNMXyYQ5u8vYnSCy4acxyRNEhA4CHBYvPBGXKLXsqwn",
+        "chain": "solana",
+        "is_current": true,
+        "description": null,
+        "API Label": "CANCEL_ORDER",
+        "transaction_hash": "5MHBPT7PwoZEPywM9UVQNt5KUFyk8ganiqjmh82FgGtiGsdJ88G94xtaUCPqncgCNzraqCgVThPYefeqNgWoWi37"
+      },
+      "classification": {
+        "categories": [
+          {
+            "beam_label": "Cost",
+            "beam_tag": "Fee"
+          }
+        ],
+        "reasoning": "Based on the transaction details provided, this appears to be a cancellation of an order on a decentralized exchange (DEX) on the Solana blockchain. The 'API Label' field indicates 'CANCEL_ORDER', and a small fee of 0.000105 SOL was paid from the wallet address '3hNMXyYQ5u8vYnSCy4acxyRNEhA4CHBYvPBGXKLXsqwn'. Since this is a cancellation of an order and not an actual trade, it does not fit neatly into the provided categories. However, the closest match would be to classify it as a 'Cost' with a 'Beam Tag' of 'Fee'."
+      },
+      "error": null
+    },
+    {
+      "index": 1,
+      "transaction_data": {
+        "id": "bfd362ee-9d7e-4225-8ffc-8557f3c00cc8",
+        "transaction_detail_id": "893aa389-737e-499c-88b9-43982dcab9e4",
+        "date": "2024-05-17 19:01:18+00",
+        "in_amount": 0.00203928,
+        "in_from": "8gR7cAKsap48ffLfwTULRva74z7WBvGnKtTDNocQFvBH",
+        "in_token": "SOL",
+        "out_amount": 0.0,
+        "out_token": null,
+        "out_to": null,
+        "fee_amount": 5.02e-06,
+        "fee_paid_by": "4MXLfTqzS5hKaf6jFPAtNiy7Z8HDMcf2sysD2UQf8x6R",
+        "exchange": null,
+        "wallet_id": "2afd80bf-3496-4373-b418-4b58ba1bf7a1",
+        "wallet_address": "4MXLfTqzS5hKaf6jFPAtNiy7Z8HDMcf2sysD2UQf8x6R",
+        "chain": "solana",
+        "is_current": true,
+        "description": null,
+        "API Label": "CANCEL_ORDER",
+        "transaction_hash": "2z3xdMZ4t6Js7n6SVUemtq1uM2pwgSaqydzsXdhpnkyYyDq5zG7yeUwQ87QFGjVAgcEd6Vm5ivB6xCnnQAf5ugS2"
+      },
+      "classification": {
+        "categories": [
+          {
+            "beam_label": "Cost",
+            "beam_tag": "Fee"
+          }
+        ],
+        "reasoning": "Based on the transaction details provided, this appears to be a cancellation of an order on a decentralized exchange or trading platform. The 'API Label' field is set to 'CANCEL_ORDER', indicating that this transaction represents the cancellation of a previously placed order. The small fee amount of 0.00000502 SOL paid from the wallet address '4MXLfTqzS5hKaf6jFPAtNiy7Z8HDMcf2sysD2UQf8x6R' further supports this interpretation. Since this is a cancellation of an order and not an actual trade or exchange, the most appropriate category would be 'Cost' with the tag 'Fee'."
+      },
+      "error": null
+    },
+    {
+      "index": 2,
+      "transaction_data": {
+        "id": "02cdf539-7949-42db-9cd2-3107c78170bd",
+        "transaction_detail_id": "62d783ca-c9b4-4cb4-a2af-30ce0f03cca7",
+        "date": "2024-05-17 19:46:37+00",
+        "in_amount": 0.00203928,
+        "in_from": "7qPhkpuYbvR5fJUKq3WDnMdGcoTKK4rgaj8BkaN6q3hb",
+        "in_token": "SOL",
+        "out_amount": 0.0,
+        "out_token": null,
+        "out_to": null,
+        "fee_amount": 5.02e-06,
+        "fee_paid_by": "4MXLfTqzS5hKaf6jFPAtNiy7Z8HDMcf2sysD2UQf8x6R",
+        "exchange": null,
+        "wallet_id": "2afd80bf-3496-4373-b418-4b58ba1bf7a1",
+        "wallet_address": "4MXLfTqzS5hKaf6jFPAtNiy7Z8HDMcf2sysD2UQf8x6R",
+        "chain": "solana",
+        "is_current": true,
+        "description": null,
+        "API Label": "CANCEL_ORDER",
+        "transaction_hash": "2VQetTMgRhtb7RpWdeueDGXtRmxLqneFDv1Pw1NBhjtMnwmFZLRWqYKNnhMg8ZkZkMyF3GyjvU8Uam1FUkdumQTA"
+      },
+      "classification": {
+        "categories": [
+          {
+            "beam_label": "Cost",
+            "beam_tag": "Fee"
+          }
+        ],
+        "reasoning": "Based on the transaction details provided, this appears to be a cancellation of an order on a decentralized exchange (DEX) on the Solana blockchain. The 'API Label' field indicates 'CANCEL_ORDER', and a small fee of 0.00000502 SOL was paid from the wallet address '4MXLfTqzS5hKaf6jFPAtNiy7Z8HDMcf2sysD2UQf8x6R'. Since this is a cancellation of an order and not an actual trade, it does not fit neatly into the provided categories. However, the closest match would be to classify it as a 'Cost' with a 'Fee' tag, as a fee was paid to cancel the order."
+      },
+      "error": null
+    },
+    {
+      "index": 3,
+      "transaction_data": {
+        "id": "a1d119a5-c4a8-4a72-9c96-e930d5d55b77",
+        "transaction_detail_id": "6e46009c-e76b-473e-9cf5-7d3f921f0158",
+        "date": "2024-05-17 19:46:46+00",
+        "in_amount": 0.00203928,
+        "in_from": "EqRz9AT8BQeG89aW4eAowWdrasJWvqFTUxA3xBFk9DC3",
+        "in_token": "SOL",
+        "out_amount": 0.0,
+        "out_token": null,
+        "out_to": null,
+        "fee_amount": 5.02e-06,
+        "fee_paid_by": "4MXLfTqzS5hKaf6jFPAtNiy7Z8HDMcf2sysD2UQf8x6R",
+        "exchange": null,
+        "wallet_id": "2afd80bf-3496-4373-b418-4b58ba1bf7a1",
+        "wallet_address": "4MXLfTqzS5hKaf6jFPAtNiy7Z8HDMcf2sysD2UQf8x6R",
+        "chain": "solana",
+        "is_current": true,
+        "description": null,
+        "API Label": "CANCEL_ORDER",
+        "transaction_hash": "3bxfpF3VQbfH1YCHLjoH7giyP37mawio9adqUgAjLJ4ygBSvih1WrXEqcBQpDF7DGd8DmyU9cRM1VoiNrjGHZ13m"
+      },
+      "classification": {
+        "categories": [
+          {
+            "beam_label": "Cost",
+            "beam_tag": "Fee"
+          }
+        ],
+        "reasoning": "Based on the transaction details provided, this appears to be a cancellation of an order on a decentralized exchange (DEX) on the Solana blockchain. The 'API Label' field is set to 'CANCEL_ORDER', indicating that this transaction is related to canceling an order. Additionally, there is a small fee amount paid in SOL, which is typical for DEX transactions. Since this is a cancellation of an order and not an actual trade, the most appropriate classification would be 'Cost' for the 'Beam Label' and 'Fee' for the 'Beam Tag'."
+      },
+      "error": null
+    },
+    {
+      "index": 4,
+      "transaction_data": {
+        "id": "2182af6a-bbb8-4f46-af2a-5f3a60f3b750",
+        "transaction_detail_id": "c700789c-3331-40e9-9256-ee6a92052318",
+        "date": "2024-05-17 22:28:42+00",
+        "in_amount": 0.00203928,
+        "in_from": "4zqn3EEaUXq7ggBfn5gMRxD6rmTUTETwmdmPd5T3uGUG",
+        "in_token": "SOL",
+        "out_amount": 0.0,
+        "out_token": null,
+        "out_to": null,
+        "fee_amount": 5.02e-06,
+        "fee_paid_by": "4MXLfTqzS5hKaf6jFPAtNiy7Z8HDMcf2sysD2UQf8x6R",
+        "exchange": null,
+        "wallet_id": "2afd80bf-3496-4373-b418-4b58ba1bf7a1",
+        "wallet_address": "4MXLfTqzS5hKaf6jFPAtNiy7Z8HDMcf2sysD2UQf8x6R",
+        "chain": "solana",
+        "is_current": true,
+        "description": null,
+        "API Label": "CANCEL_ORDER",
+        "transaction_hash": "4enAb8rKUEwcusrrXY5bqeMaR41AzG9TaiGBDLyEEKBWsXKFTDEV8yigNvSnZgMbyazLuSjBcQtVyBfsM8fihodH"
+      },
+      "classification": {
+        "categories": [
+          {
+            "beam_label": "Cost",
+            "beam_tag": "Fee"
+          }
+        ],
+        "reasoning": "Based on the transaction details provided, this appears to be a cancellation of an order on a decentralized exchange or trading platform. The 'API Label' field indicates 'CANCEL_ORDER', and there is an inbound transfer of 0.00203928 SOL with a small fee of 5.02e-06 SOL paid. Since this is a cancellation of an order rather than an actual trade, the most appropriate classification would be 'Cost' for the 'Beam Label' and 'Fee' for the 'Beam Tag'."
+      },
+      "error": null
+    }
+  ],
+  "timestamp": "2025-01-15T22:10:56.609658",
+  "success_rate": 1.0
+}
