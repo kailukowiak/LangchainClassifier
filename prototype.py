@@ -69,6 +69,7 @@ class BatchProcessor:
         model_name: str = "claude-3-sonnet-20240229",
         batch_size: int = 25,
         max_retries: int = 3,
+        df=None,
     ):
         self.model_name = model_name
         self.batch_size = batch_size
@@ -76,6 +77,19 @@ class BatchProcessor:
         self.llm = self._create_llm()
         self.parser = PydanticOutputParser(pydantic_object=TransactionClassification)
         self.chain = self._create_chain()
+        if df is not None:
+            example = (
+                df.group_by(["Beam Tag", "Beam Label"])
+                .head(2)
+                .sort(["Beam Tag", "Beam Label"])
+                .drop("JSON_Info")
+                .to_dicts()
+            )
+            self.example = f"""Here are some example transactions to help you get started:
+
+                {json.dumps(example, indent=2)}"""
+        else:
+            self.example = ""
 
     def _create_llm(self):
         return ChatAnthropic(
@@ -93,6 +107,8 @@ Transaction:
 
 Available Categories:
 {categories}
+
+{example}
 
 Please provide:
 1. A detailed explanation of your classification reasoning
@@ -122,6 +138,7 @@ IMPORTANT: Provide a single classification for this specific transaction only.
                 {
                     "transactions": transaction_str,
                     "categories": categories,
+                    "example": self.example,
                     "format_instructions": self.parser.get_format_instructions(),
                 }
             )
@@ -245,10 +262,14 @@ def main():
     # Load environment variables and data
     load_dotenv()
     data_path = os.getenv("TRANSACTIONS_DATA_PATH")
-    df = pl.read_csv(data_path).head(100)
+    df = pl.read_csv(data_path)
+
+    df = df.group_by(["Beam Tag", "Beam Label"]).head(50)
+    # randomly sort the data
+    df = df.shuffle()
 
     # Initialize processor with desired parameters
-    processor = BatchProcessor(batch_size=25, max_retries=3)
+    processor = BatchProcessor(batch_size=25, max_retries=3, df=df)
 
     # Process dataset
     results = processor.process_dataset(df)
@@ -271,24 +292,34 @@ if __name__ == "__main__":
 # # %%
 # tc.model_dump()
 # %%
-data_path = os.getenv("TRANSACTIONS_DATA_PATH")
-df = pl.read_csv(data_path)
-# %%
-# Test out a single transaction that contains staking
-transaction = (
-    df.filter(pl.col("Beam Label") == "Staking")
-    # .drop("JSON_Info", "Beam Label", "Beam Tag")
-    .head(3)
-)
-transaction
 
-processor = BatchProcessor(batch_size=1, max_retries=3)
-results = processor.process_dataset(transaction)
+# data_path = os.getenv("TRANSACTIONS_DATA_PATH")
+# df = pl.read_csv(data_path)
+# # %%
+# # Test out a single transaction that contains staking
+# transaction = (
+#     df.filter(pl.col("Beam Label") == "Staking")
+#     # .drop("JSON_Info", "Beam Label", "Beam Tag")
+#     .head(3)
+# )
+# transaction
 
-# %%
-comparison_df = create_comparison_df(results, transaction)
-# %%
-comparison_df
-# %%
-comparison_df.write_csv("out_data/staking_comparison.csv")
-# %%
+# processor = BatchProcessor(batch_size=1, max_retries=3)
+# results = processor.process_dataset(transaction)
+
+# # %%
+# comparison_df = create_comparison_df(results, transaction)
+# # %%
+# comparison_df
+# # %%
+# comparison_df.write_csv("out_data/staking_comparison.csv")
+# # %%
+# df_samples = (
+#     df.group_by(["Beam Tag", "Beam Label"])
+#     .head(2)
+#     .sort(["Beam Tag", "Beam Label"])
+#     .drop("JSON_Info")
+# )
+# print(f"Sample size: {len(df_samples)}")
+# df_samples
+# # %%
