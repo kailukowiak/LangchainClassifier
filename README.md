@@ -6,11 +6,17 @@ A langchain based crypto tax classifier.
 
 ```bash
 # curl -LsSf https://astral.sh/uv/install.sh | sh
-uv sync
+uv pip install -e .
 ```
 
 ## Usage
 
 ```bash
-uv run main.uv
+uv run inference.py
+```
+
+## Development
+
+```bash
+uv run pre-commit install
 ```
