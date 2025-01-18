@@ -214,12 +214,33 @@ def create_comparison_df(
 ) -> pl.DataFrame:
     """Create a comparison dataframe with predicted and actual labels"""
 
+    # predicted_beam_label = []
+    # predicted_beam_tag = []
     rows = []
     for result in batch_results.results:
         row = {
             "index": result.index,
             "actual_beam_label": original_df["Beam Label"][result.index],
             "actual_beam_tag": original_df["Beam Tag"][result.index],
+            "id": original_df["id"][result.index],
+            "transaction_detail_id": original_df["transaction_detail_id"][result.index],
+            "date": original_df["date"][result.index],
+            "in_amount": original_df["in_amount"][result.index],
+            "in_from": original_df["in_from"][result.index],
+            "in_token": original_df["in_token"][result.index],
+            "out_amount": original_df["out_amount"][result.index],
+            "out_to": original_df["out_to"][result.index],
+            "out_token": original_df["out_token"][result.index],
+            "fee_amount": original_df["fee_amount"][result.index],
+            "fee_paid_by": original_df["fee_paid_by"][result.index],
+            "exchange": original_df["exchange"][result.index],
+            "API Label": original_df["API Label"][result.index],
+            "transaction_hash": original_df["transaction_hash"][result.index],
+            "wallet_id": original_df["wallet_id"][result.index],
+            "wallet_address": original_df["wallet_address"][result.index],
+            "chain": original_df["chain"][result.index],
+            "is_current": original_df["is_current"][result.index],
+            "description": original_df["description"][result.index],
             "predicted_beam_label": None,
             "predicted_beam_tag": None,
             "correct_label": False,
@@ -285,7 +306,28 @@ def main():
 # %%
 
 if __name__ == "__main__":
-    main()
+    # main()
+    load_dotenv()
+    data_path = os.getenv("TRANSACTIONS_DATA_PATH")
+    df = pl.read_csv(data_path)
+
+    df = df.group_by(["Beam Tag", "Beam Label"]).head(50)
+    # randomly sort the data
+    df = df.sample(50)
+    # df = df.head(50)
+
+    # Initialize processor with desired parameters
+    processor = BatchProcessor(batch_size=5, max_retries=3, df=df)
+
+    # Process dataset
+    results = processor.process_dataset(df)
+
+    # Save results
+    results.to_json("out_data/batch_classification_results.json")
+
+    # Create and save comparison DataFrame
+    comparison_df = create_comparison_df(results, df)
+    comparison_df.write_csv("out_data/batch_classification_comparison.csv")
 # %%
 
 # tc = TransactionCategory(beam_label="Loan", beam_tag="Payment")
