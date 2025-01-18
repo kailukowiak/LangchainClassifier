@@ -2,22 +2,21 @@
 import json
 import os
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import polars as pl
 from dotenv import load_dotenv
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
-
-# from langchain_anthropic import ChatGoogleGenerativeAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field, field_validator
-from tenacity import retry, stop_after_attempt, wait_exponential
 from tqdm import tqdm
 
-# from tqdm.notebook import tqdm
+# Load environment variables
+load_dotenv()
 
 
+# Define your Pydantic models
 class TransactionCategory(BaseModel):
     beam_label: Optional[str] = Field(
         description="The primary category of the transaction"
@@ -67,248 +66,149 @@ class BatchClassificationResults(BaseModel):
             json.dump(self.model_dump(), f, indent=2)
 
 
-class BatchProcessor:
-    def __init__(
-        self,
-        model_name: str = "gemini-1.5-pro",
-        batch_size: int = 25,
-        max_retries: int = 3,
-        df=None,
-    ):
-        self.model_name = model_name
-        self.batch_size = batch_size
-        self.max_retries = max_retries
-        self.llm = self._create_llm()
-        self.parser = PydanticOutputParser(pydantic_object=TransactionClassification)
-        self.chain = self._create_chain()
-        if df is not None:
-            example = (
-                df.group_by(["Beam Tag", "Beam Label"])
-                .head(2)
-                .sort(["Beam Tag", "Beam Label"])
-                .drop("JSON_Info")
-                .to_dicts()
-            )
-            self.example = f"""Here are some example transactions to help you get started:
+# Define your Pydantic models
+class TransactionCategory(BaseModel):
+    beam_label: Optional[str] = Field(
+        description="The primary category of the transaction"
+    )
+    beam_tag: Optional[str] = Field(description="The specific tag for the transaction")
 
-                {json.dumps(example, indent=2)}"""
-        else:
-            self.example = ""
 
-    def _create_llm(self):
-        return ChatGoogleGenerativeAI(
-            model=self.model_name,
+class TransactionClassification(BaseModel):
+    categories: List[TransactionCategory] = Field(
+        description="List of transaction categories"
+    )
+    reasoning: str = Field(description="Explanation for the classification")
+
+    @field_validator("categories")
+    @classmethod
+    def validate_categories(cls, v):
+        if not v:
+            raise ValueError("At least one category must be provided")
+        if len(v) > 1:
+            raise ValueError("Only one category should be provided per transaction")
+        return v
+
+
+class ClassificationResult(BaseModel):
+    index: int = Field(description="Index of the transaction in the dataset")
+    transaction_data: dict = Field(description="Original transaction data")
+    classification: Optional[TransactionClassification] = Field(
+        description="Classification results"
+    )
+    error: Optional[str] = Field(
+        default=None, description="Error message if classification failed"
+    )
+
+
+# %%
+class TransactionClassifier:
+    def __init__(self, api_key: str, model_name: str = "gemini-pro"):
+        """Initialize the classifier with Google API key and model settings."""
+        self.llm = ChatGoogleGenerativeAI(
+            google_api_key=api_key,
+            model=model_name,
             temperature=0,
-            max_tokens_to_sample=1000,
-            api_key=os.getenv("CLAUDE_API_KEY"),
+            convert_system_message_to_human=True,
         )
 
-    def _create_chain(self):
-        template = """You are an expert crypto accountant. Please analyze the following transaction and classify it into appropriate categories. Focus ONLY on the specific transaction provided.
+        self.parser = PydanticOutputParser(pydantic_object=TransactionClassification)
 
-Transaction:
-{transactions}
+        self.prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    "You are a financial transaction classifier. Analyze the transaction "
+                    "and classify it into appropriate categories. Provide clear reasoning "
+                    "for your classification.",
+                ),
+                (
+                    "human",
+                    "Transaction details: {transaction}\n\n"
+                    "Classify this transaction using the following format:\n{format_instructions}",
+                ),
+            ]
+        )
 
-Available Categories:
-{categories}
-
-{example}
-
-Please provide:
-1. A detailed explanation of your classification reasoning
-2. The final classification in the specified format
-
-IMPORTANT: Provide a single classification for this specific transaction only.
-
-{format_instructions}"""
-
-        prompt = ChatPromptTemplate.from_template(template)
-        return prompt | self.llm | self.parser
-
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=4, max=10),
-        retry_error_callback=lambda retry_state: None,
-    )
-    def _process_transaction(
-        self, transaction: Dict, categories: List[Dict], index: int
+    def classify_transaction(
+        self, transaction_data: dict, index: int
     ) -> ClassificationResult:
+        """Classify a single transaction."""
         try:
-            # Format single transaction
-            transaction_str = json.dumps(transaction, indent=2)
+            # Format the transaction data for the prompt
+            formatted_transaction = "\n".join(
+                [f"{k}: {v}" for k, v in transaction_data.items()]
+            )
 
-            # Run the classification
-            result = self.chain.invoke(
+            # Create the full prompt with format instructions
+            chain = self.prompt | self.llm | self.parser
+
+            # Get the classification
+            classification = chain.invoke(
                 {
-                    "transactions": transaction_str,
-                    "categories": categories,
-                    "example": self.example,
+                    "transaction": formatted_transaction,
                     "format_instructions": self.parser.get_format_instructions(),
                 }
             )
 
             return ClassificationResult(
-                index=index, transaction_data=transaction, classification=result
+                index=index,
+                transaction_data=transaction_data,
+                classification=classification,
             )
+
         except Exception as e:
             return ClassificationResult(
-                index=index,
-                transaction_data=transaction,
-                classification=None,
-                error=str(e),
+                index=index, transaction_data=transaction_data, error=str(e)
             )
 
-    def process_dataset(
-        self,
-        df: pl.DataFrame,
-        drop_cols: List[str] = ["JSON_Info", "Beam Label", "Beam Tag"],
+    def classify_batch(
+        self, df: pl.DataFrame, batch_size: int = 10
     ) -> BatchClassificationResults:
-        # Prepare data
-        df_processed = df.drop(drop_cols)
-        transactions = df_processed.to_dicts()
-        total_transactions = len(transactions)
+        """Classify a batch of transactions from a Polars DataFrame."""
+        results = []
+        total_rows = len(df)
 
-        # Define categories
-        categories = [
-            {"Beam Label": "Loan", "Beam Tag": "Payment"},
-            {"Beam Label": "Exchange", "Beam Tag": "Trade"},
-            {"Beam Label": "Loan", "Beam Tag": None},
-            {"Beam Label": "Cost", "Beam Tag": "Fee"},
-            {"Beam Label": "Exchange", "Beam Tag": "Wrap/Bridge"},
-            {"Beam Label": "Create DCA", "Beam Tag": None},
-            {"Beam Label": "Loan", "Beam Tag": "Collateralize"},
-            {"Beam Label": "Loan", "Beam Tag": "Borrow"},
-            {"Beam Label": "Staking", "Beam Tag": "Stake"},
-            {"Beam Label": "Exchange", "Beam Tag": "Mint"},
-            {"Beam Label": "Income", "Beam Tag": "Airdrop"},
-            {"Beam Label": "Staking", "Beam Tag": "Unstake"},
-            {"Beam Label": None, "Beam Tag": None},
-            {"Beam Label": "Cost", "Beam Tag": "Burn"},
-        ]
+        # Convert DataFrame to list of dictionaries for processing
+        transactions = df.to_dicts()
 
-        # Process in batches
-        all_results = []
+        # Process in batches with progress bar
+        for i in tqdm(range(0, total_rows, batch_size), desc="Processing transactions"):
+            batch = transactions[i : min(i + batch_size, total_rows)]
 
-        for start_idx in tqdm(
-            range(0, total_transactions, self.batch_size), desc="Processing batches"
-        ):
-            end_idx = min(start_idx + self.batch_size, total_transactions)
-            batch_transactions = transactions[start_idx:end_idx]
-
-            # Process each transaction in the batch
-            for idx, transaction in enumerate(batch_transactions):
-                result = self._process_transaction(
-                    transaction, categories, start_idx + idx
-                )
-                all_results.append(result)
+            for idx, transaction in enumerate(batch):
+                result = self.classify_transaction(transaction, i + idx)
+                results.append(result)
 
         # Calculate success rate
-        success_rate = (
-            len([r for r in all_results if r.classification is not None])
-            / total_transactions
-        )
+        successful = sum(1 for r in results if r.classification is not None)
+        success_rate = (successful / total_rows) * 100
 
-        return BatchClassificationResults(
-            results=all_results, success_rate=success_rate
-        )
+        return BatchClassificationResults(results=results, success_rate=success_rate)
 
 
-def create_comparison_df(
-    batch_results: BatchClassificationResults, original_df: pl.DataFrame
-) -> pl.DataFrame:
-    """Create a comparison dataframe with predicted and actual labels"""
+# Example usage
+def main():
+    # Set up your Google API key
+    api_key = os.getenv("GOOGLE_API_KEY")
 
-    # predicted_beam_label = []
-    # predicted_beam_tag = []
-    rows = []
-    for result in batch_results.results:
-        row = {
-            "index": result.index,
-            "actual_beam_label": original_df["Beam Label"][result.index],
-            "actual_beam_tag": original_df["Beam Tag"][result.index],
-            "id": original_df["id"][result.index],
-            "transaction_detail_id": original_df["transaction_detail_id"][result.index],
-            "date": original_df["date"][result.index],
-            "in_amount": original_df["in_amount"][result.index],
-            "in_from": original_df["in_from"][result.index],
-            "in_token": original_df["in_token"][result.index],
-            "out_amount": original_df["out_amount"][result.index],
-            "out_to": original_df["out_to"][result.index],
-            "out_token": original_df["out_token"][result.index],
-            "fee_amount": original_df["fee_amount"][result.index],
-            "fee_paid_by": original_df["fee_paid_by"][result.index],
-            "exchange": original_df["exchange"][result.index],
-            "API Label": original_df["API Label"][result.index],
-            "transaction_hash": original_df["transaction_hash"][result.index],
-            "wallet_id": original_df["wallet_id"][result.index],
-            "wallet_address": original_df["wallet_address"][result.index],
-            "chain": original_df["chain"][result.index],
-            "is_current": original_df["is_current"][result.index],
-            "description": original_df["description"][result.index],
-            "predicted_beam_label": None,
-            "predicted_beam_tag": None,
-            "correct_label": False,
-            "correct_tag": False,
-            "reasoning": None,
-            "error": result.error,
-        }
+    # Create sample DataFrame
+    df = pl.read_csv(os.getenv("TRANSACTIONS_DATA_PATH")).sample(10)
 
-        if result.classification and result.classification.categories:
-            category = result.classification.categories[0]
-            row.update(
-                {
-                    "predicted_beam_label": category.beam_label,
-                    "predicted_beam_tag": category.beam_tag,
-                    "reasoning": result.classification.reasoning,
-                }
-            )
+    # Initialize classifier
+    classifier = TransactionClassifier(api_key=api_key)
 
-            row["correct_label"] = (
-                row["predicted_beam_label"] == row["actual_beam_label"]
-            )
-            row["correct_tag"] = row["predicted_beam_tag"] == row["actual_beam_tag"]
-
-        rows.append(row)
-
-    comparison_df = pl.DataFrame(rows)
-
-    # Calculate accuracy metrics
-    label_accuracy = comparison_df["correct_label"].sum() / len(comparison_df) * 100
-    tag_accuracy = comparison_df["correct_tag"].sum() / len(comparison_df) * 100
-
-    print("\nAccuracy Metrics:")
-    print(f"Beam Label Accuracy: {label_accuracy:.2f}%")
-    print(f"Beam Tag Accuracy: {tag_accuracy:.2f}%")
-
-    return comparison_df
-
-
-# %%
-
-if __name__ == "__main__":
-    # main()
-    load_dotenv()
-    data_path = os.getenv("TRANSACTIONS_DATA_PATH")
-    df = pl.read_csv(data_path)
-    df = df.filter(
-        pl.col("Beam Tag").is_not_null() & pl.col("Beam Label").is_not_null()
-    )
-
-    df = df.group_by(["Beam Tag", "Beam Label"]).head(100)
-    # randomly sort the data
-    df = df.sample(500)
-    # df = df.head(50)
-
-    # Initialize processor with desired parameters
-    processor = BatchProcessor(batch_size=25, max_retries=3, df=df)
-
-    # Process dataset
-    results = processor.process_dataset(df)
+    # Run classification
+    results = classifier.classify_batch(df)
 
     # Save results
-    results.to_json("out_data/batch_classification_results.json")
+    results.to_json("classification_results.json")
 
-    # Create and save comparison DataFrame
-    comparison_df = create_comparison_df(results, df)
-    comparison_df.write_csv("out_data/batch_classification_comparison.csv")
+    # Print summary
+    print(f"Classification complete. Success rate: {results.success_rate:.2f}%")
+
+
+if __name__ == "__main__":
+    main()
+
 # %%
