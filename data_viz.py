@@ -3,7 +3,12 @@ import matplotlib.pyplot as plt
 import polars as pl
 
 df = pl.read_csv("out_data/batch_classification_comparison.csv")
-
+# drop if column `error` is not null
+# df = df.filter(pl.col("error").is_null())
+# filter actual_beam_label is not null or actual_beam_tag is not null
+df = df.filter(
+    pl.col("actual_beam_label").is_not_null() & pl.col("actual_beam_tag").is_not_null()
+)
 # %%
 
 
@@ -11,75 +16,6 @@ df = pl.read_csv("out_data/batch_classification_comparison.csv")
 # Show what percent of errors are their in the data
 df.select("error").null_count()
 # %%
-pivot_df = (
-    df.select(["actual_beam_tag", "correct_tag"])
-    .to_pandas()
-    .pivot_table(
-        index="actual_beam_tag",
-        columns="correct_tag",
-        values="correct_tag",
-        aggfunc="size",
-        fill_value=0,
-    )
-)
-
-# Calculate percentages
-pivot_df_pct = pivot_df.div(pivot_df.sum(axis=1), axis=0) * 100
-
-
-# %%
-# Set style
-plt.style.use("dark_background")
-
-# Create figure and axis with dark background
-plt.figure(
-    figsize=(12, 6), facecolor="#1a1a1a"
-)  # Made figure wider to accommodate legend
-ax = plt.gca()
-ax.set_facecolor("#1a1a1a")
-
-# Create plot with new colors
-ax = pivot_df_pct.plot(
-    kind="bar", stacked=True, color=["#D05121", "#404040"], width=0.8
-)
-
-# Remove all grid lines
-ax.grid(False)
-
-# Remove top and right spines
-ax.spines["top"].set_visible(False)
-ax.spines["right"].set_visible(False)
-ax.spines["left"].set_color("#404040")
-ax.spines["bottom"].set_color("#404040")
-
-# Customize title and labels
-plt.title("Classification Accuracy by Tag", color="#FFFFFF", pad=20, fontsize=12)
-plt.xlabel("Tag", color="#FFFFFF", labelpad=10)
-plt.ylabel("Percentage", color="#FFFFFF", labelpad=10)
-
-# Position legend outside the plot
-plt.legend(
-    title="Classification",
-    labels=["Incorrect", "Correct"],
-    facecolor="#1a1a1a",
-    labelcolor="white",
-    edgecolor="#404040",
-    bbox_to_anchor=(1.05, 1),  # Position legend outside
-    loc="upper left",
-)
-
-# Customize ticks
-plt.xticks(rotation=45, color="#FFFFFF", ha="right")
-plt.yticks(color="#FFFFFF")
-
-# Add percentage labels
-for c in ax.containers:
-    ax.bar_label(c, fmt="%.0f%%", color="#FFFFFF", label_type="center")
-
-# Adjust layout to ensure legend fits
-plt.tight_layout()
-
-plt.show()
 
 
 # %%

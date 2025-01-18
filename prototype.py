@@ -288,14 +288,17 @@ if __name__ == "__main__":
     load_dotenv()
     data_path = os.getenv("TRANSACTIONS_DATA_PATH")
     df = pl.read_csv(data_path)
+    df = df.filter(
+        pl.col("Beam Tag").is_not_null() & pl.col("Beam Label").is_not_null()
+    )
 
-    df = df.group_by(["Beam Tag", "Beam Label"]).head(5000)
+    df = df.group_by(["Beam Tag", "Beam Label"]).head(100)
     # randomly sort the data
     df = df.sample(500)
     # df = df.head(50)
 
     # Initialize processor with desired parameters
-    processor = BatchProcessor(batch_size=5, max_retries=3, df=df)
+    processor = BatchProcessor(batch_size=25, max_retries=3, df=df)
 
     # Process dataset
     results = processor.process_dataset(df)
