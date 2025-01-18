@@ -1,7 +1,7 @@
 # %%
 import json
 import os
-from typing import Dict, List, Union
+from typing import Dict, List
 
 import polars as pl
 from langchain.output_parsers import PydanticOutputParser

@@ -22,7 +22,10 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ipykernel>=6.29.5"]
+dev = [
+    "ipykernel>=6.29.5",
+    "pre-commit>=4.0.1",
+]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
