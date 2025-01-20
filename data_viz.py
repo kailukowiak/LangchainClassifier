@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import polars as pl
 
-df = pl.read_csv("out_data/batch_classification_comparison.csv")
+df = pl.read_csv("out_data/ModelName.GEMINI_15_8Bbatch_classification_comparison.csv")
 # drop if column `error` is not null
 # df = df.filter(pl.col("error").is_null())
 # filter actual_beam_label is not null or actual_beam_tag is not null
@@ -12,7 +12,6 @@ df = df.filter(
 # %%
 
 
-# %%
 # Show what percent of errors are their in the data
 df.select("error").null_count()
 # %%
@@ -46,7 +45,7 @@ def create_classification_chart(
 
     # Join and calculate percentages
     results = results.join(totals, on=grouping_col).with_columns(
-        percentage=pl.col("count") / pl.col("total") * 100
+        percentage=pl.col("count") / pl.col("total") * 100,
     )
 
     # Pivot the results

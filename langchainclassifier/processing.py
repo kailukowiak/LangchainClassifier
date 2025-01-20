@@ -8,8 +8,8 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
+from rich.progress import track
 from tenacity import retry, stop_after_attempt, wait_exponential
-from tqdm import tqdm
 
 from langchainclassifier.data_models import (
     BatchClassificationResults,
@@ -57,14 +57,14 @@ class BatchProcessor:
     def _create_llm(self, model_provider: str):
         if model_provider == "anthropic":
             return ChatAnthropic(
-                model="claude-1.5-pro",  # self.model_name,
+                model=self.model_name,
                 temperature=0,
                 max_tokens_to_sample=1000,
                 api_key=os.getenv("CLAUDE_API_KEY"),
             )
         elif model_provider == "gemini":
             return ChatGoogleGenerativeAI(
-                model="gemini-1.5-pro",  # self.model_name,
+                model=self.model_name,
                 temperature=0,
                 max_tokens_to_sample=1000,
                 api_key=os.getenv("GOOGLE_API_KEY"),
@@ -138,44 +138,80 @@ IMPORTANT: Provide a single classification for this specific transaction only.
         total_transactions = len(transactions)
 
         # Define categories
-        categories = [
-            {"Beam Label": "Loan", "Beam Tag": "Payment"},
-            {"Beam Label": "Exchange", "Beam Tag": "Trade"},
-            {"Beam Label": "Loan", "Beam Tag": None},
-            {"Beam Label": "Cost", "Beam Tag": "Fee"},
-            {"Beam Label": "Exchange", "Beam Tag": "Wrap/Bridge"},
-            {"Beam Label": "Create DCA", "Beam Tag": None},
-            {"Beam Label": "Loan", "Beam Tag": "Collateralize"},
-            {"Beam Label": "Loan", "Beam Tag": "Borrow"},
-            {"Beam Label": "Staking", "Beam Tag": "Stake"},
-            {"Beam Label": "Exchange", "Beam Tag": "Mint"},
-            {"Beam Label": "Income", "Beam Tag": "Airdrop"},
-            {"Beam Label": "Staking", "Beam Tag": "Unstake"},
-            {"Beam Label": None, "Beam Tag": None},
-            {"Beam Label": "Cost", "Beam Tag": "Burn"},
-        ]
+        categories = """
+        beam_label:
+            ['Loan'],
+            ['Create DCA'],
+            ['Exchange'],
+            ['Income'],
+            ['Staking'],
+            [None],
+            ['Cost']
+
+
+        beam_tag:
+            [None],
+            ['Borrow'],
+            ['Airdrop'],
+            ['Unstake'],
+            ['Burn'],
+            ['Stake'],
+            ['Mint'],
+            ['Fee'],
+            ['Wrap/Bridge'],
+            ['Trade'],
+            ['Collateralize'],
+            ['Payment']
+
+        please return a json object with the following format:
+        {
+            "beam_label": "<label>",
+            "beam_tag": "<tag>"
+        }
+        """
 
         # Process in batches
         all_results = []
+        running_correct = 0
 
-        for start_idx in tqdm(
-            range(0, total_transactions, self.batch_size), desc="Processing batches"
+        # Create tqdm instance with initial metrics
+        # pbar = tqdm(
+        #     range(0, total_transactions, self.batch_size),
+        #     desc="Processing batches",
+        #     dynamic_ncols=True,  # This helps with terminal resizing
+        # )
+
+        for start_idx in track(
+            range(0, total_transactions, self.batch_size),
+            description="Processing batches",
         ):
             end_idx = min(start_idx + self.batch_size, total_transactions)
             batch_transactions = transactions[start_idx:end_idx]
 
             # Process each transaction in the batch
+            batch_results = []
             for idx, transaction in enumerate(batch_transactions):
                 result = self._process_transaction(
                     transaction, categories, start_idx + idx
                 )
+                batch_results.append(result)
                 all_results.append(result)
 
-        # Calculate success rate
-        success_rate = (
-            len([r for r in all_results if r.classification is not None])
-            / total_transactions
-        )
+            # Update running accuracy
+            running_correct = (
+                len(  # Incorrect way. Returns true if there were no errors Fix this
+                    [r for r in all_results if r.classification is not None]
+                )
+            )
+            # current_accuracy = running_correct / len(all_results)
+
+            # Update progress bar description with accuracy
+            # pbar.set_description(
+            #     f"Processing batches [Accuracy: {current_accuracy:.2%}]"
+            # )
+
+        # Calculate final success rate
+        success_rate = running_correct / total_transactions
 
         return BatchClassificationResults(
             results=all_results, success_rate=success_rate
@@ -244,9 +280,10 @@ def create_comparison_df(
     # Calculate accuracy metrics
     label_accuracy = comparison_df["correct_label"].sum() / len(comparison_df) * 100
     tag_accuracy = comparison_df["correct_tag"].sum() / len(comparison_df) * 100
-
-    print("\nAccuracy Metrics:")
+    print("\n===============================================")
+    print("Accuracy Metrics:")
     print(f"Beam Label Accuracy: {label_accuracy:.2f}%")
     print(f"Beam Tag Accuracy: {tag_accuracy:.2f}%")
+    print("===============================================\n")
 
     return comparison_df

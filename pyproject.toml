@@ -16,8 +16,10 @@ dependencies = [
     "pyarrow>=19.0.0",
     "pydantic>=2.10.5",
     "python-dotenv>=1.0.1",
+    "rich>=13.9.4",
     "seaborn>=0.13.2",
     "tqdm>=4.67.1",
+    "typer>=0.15.1",
     "widgetsnbextension>=4.0.13",
 ]
 
