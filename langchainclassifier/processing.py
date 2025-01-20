@@ -8,7 +8,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
-from rich.progress import track
+from rich.progress import Progress
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from langchainclassifier.data_models import (
@@ -148,7 +148,6 @@ IMPORTANT: Provide a single classification for this specific transaction only.
             [None],
             ['Cost']
 
-
         beam_tag:
             [None],
             ['Borrow'],
@@ -172,46 +171,71 @@ IMPORTANT: Provide a single classification for this specific transaction only.
 
         # Process in batches
         all_results = []
-        running_correct = 0
+        correct_labels = 0
+        correct_tags = 0
+        processed_count = 0
 
-        # Create tqdm instance with initial metrics
-        # pbar = tqdm(
-        #     range(0, total_transactions, self.batch_size),
-        #     desc="Processing batches",
-        #     dynamic_ncols=True,  # This helps with terminal resizing
-        # )
-
-        for start_idx in track(
-            range(0, total_transactions, self.batch_size),
-            description="Processing batches",
-        ):
-            end_idx = min(start_idx + self.batch_size, total_transactions)
-            batch_transactions = transactions[start_idx:end_idx]
-
-            # Process each transaction in the batch
-            batch_results = []
-            for idx, transaction in enumerate(batch_transactions):
-                result = self._process_transaction(
-                    transaction, categories, start_idx + idx
-                )
-                batch_results.append(result)
-                all_results.append(result)
-
-            # Update running accuracy
-            running_correct = (
-                len(  # Incorrect way. Returns true if there were no errors Fix this
-                    [r for r in all_results if r.classification is not None]
-                )
+        with Progress() as progress:
+            # Create progress bars
+            task_overall = progress.add_task(
+                "[cyan]Processing transactions...", total=total_transactions
             )
-            # current_accuracy = running_correct / len(all_results)
+            task_label_accuracy = progress.add_task(
+                "[green]Beam Label Accuracy", total=100
+            )
+            task_tag_accuracy = progress.add_task(
+                "[yellow]Beam Tag Accuracy", total=100
+            )
 
-            # Update progress bar description with accuracy
-            # pbar.set_description(
-            #     f"Processing batches [Accuracy: {current_accuracy:.2%}]"
-            # )
+            for start_idx in range(0, total_transactions, self.batch_size):
+                end_idx = min(start_idx + self.batch_size, total_transactions)
+                batch_transactions = transactions[start_idx:end_idx]
 
-        # Calculate final success rate
-        success_rate = running_correct / total_transactions
+                # Process each transaction in the batch
+                batch_results = []
+                for idx, transaction in enumerate(batch_transactions):
+                    result = self._process_transaction(
+                        transaction, categories, start_idx + idx
+                    )
+                    batch_results.append(result)
+                    all_results.append(result)
+
+                    # Update accuracy metrics
+                    if result.classification and result.classification.categories:
+                        category = result.classification.categories[0]
+                        if category.beam_label == df["Beam Label"][start_idx + idx]:
+                            correct_labels += 1
+                        if category.beam_tag == df["Beam Tag"][start_idx + idx]:
+                            correct_tags += 1
+
+                    processed_count += 1
+
+                    # Update progress bars
+                    progress.update(
+                        task_overall,
+                        completed=processed_count,
+                        description=f"[cyan]Processing transactions... ({processed_count}/{total_transactions})",
+                    )
+
+                    label_accuracy = (correct_labels / processed_count) * 100
+                    tag_accuracy = (correct_tags / processed_count) * 100
+
+                    progress.update(
+                        task_label_accuracy,
+                        completed=label_accuracy,
+                        description=f"[green]Beam Label Accuracy: {label_accuracy:.1f}%",
+                    )
+                    progress.update(
+                        task_tag_accuracy,
+                        completed=tag_accuracy,
+                        description=f"[yellow]Beam Tag Accuracy: {tag_accuracy:.1f}%",
+                    )
+
+        # Calculate final success rate (processing success, not accuracy)
+        success_rate = (
+            len([r for r in all_results if r.classification is not None])
+            / total_transactions
+        )
 
         return BatchClassificationResults(
             results=all_results, success_rate=success_rate
