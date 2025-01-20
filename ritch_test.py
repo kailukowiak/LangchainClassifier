@@ -74,5 +74,3 @@ def simulate_processing(n_transactions=10):
 
 if __name__ == "__main__":
     simulate_processing(10)
-
-# %%
