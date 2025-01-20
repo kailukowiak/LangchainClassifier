@@ -14,7 +14,7 @@ from rich.progress import (
 
 
 def simulate_processing(n_transactions=10):
-    # Create columns for main progress bar (with time)
+    # Create columns for main progress bar (with timestamps)
     progress_columns = [
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
@@ -23,7 +23,7 @@ def simulate_processing(n_transactions=10):
         TimeElapsedColumn(),
     ]
 
-    # Create columns for accuracy metrics (without time)
+    # Create columns for accuracy metrics (without timestamps)
     accuracy_columns = [
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
@@ -39,17 +39,17 @@ def simulate_processing(n_transactions=10):
             "[cyan]Processing transactions...", total=n_transactions
         )
 
-        # Add accuracy tasks with different columns
+        # Add accuracy tasks with custom columns (no time columns)
         task_label_accuracy = progress.add_task(
             "[green]Beam Label Accuracy",
             total=100,
-            columns=accuracy_columns,  # Use custom columns without time
+            columns=accuracy_columns,  # Use columns without time
         )
 
         task_tag_accuracy = progress.add_task(
             "[yellow]Beam Tag Accuracy",
             total=100,
-            columns=accuracy_columns,  # Use custom columns without time
+            columns=accuracy_columns,  # Use columns without time
         )
 
         # Simulate processing

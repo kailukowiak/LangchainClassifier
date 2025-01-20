@@ -8,7 +8,14 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
-from rich.progress import Progress
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from langchainclassifier.data_models import (
@@ -174,8 +181,14 @@ IMPORTANT: Provide a single classification for this specific transaction only.
         correct_labels = 0
         correct_tags = 0
         processed_count = 0
-
-        with Progress() as progress:
+        progress_columns = [
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            TimeElapsedColumn(),
+        ]
+        with Progress(*progress_columns) as progress:
             # Create progress bars
             task_overall = progress.add_task(
                 "[cyan]Processing transactions...", total=total_transactions
@@ -186,7 +199,7 @@ IMPORTANT: Provide a single classification for this specific transaction only.
             task_tag_accuracy = progress.add_task(
                 "[yellow]Beam Tag Accuracy", total=100
             )
-
+            print(f"{self.batch_size=}")
             for start_idx in range(0, total_transactions, self.batch_size):
                 end_idx = min(start_idx + self.batch_size, total_transactions)
                 batch_transactions = transactions[start_idx:end_idx]
